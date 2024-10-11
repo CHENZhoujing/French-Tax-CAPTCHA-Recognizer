@@ -3,7 +3,7 @@
 import cv2
 import os
 import numpy as np
-from tensorflow.keras.models import load_model
+import onnxruntime as ort
 
 
 def recognize_digits(image_path, model, gray_range=(45, 82)):
@@ -111,11 +111,23 @@ def recognize_digits(image_path, model, gray_range=(45, 82)):
             # Normalize pixel values
             digit_normalized = digit_resized / 255.0
 
+            '''
+            
             # Reshape for model input
             model_input = digit_normalized.reshape(1, 10, 15, 1)
 
             # Predict digit using the model
             prediction = model.predict(model_input)
+            predicted_label = np.argmax(prediction)
+            recognized_digits.append(predicted_label)
+            '''
+            # Reshape for model input
+            model_input = digit_normalized.reshape(1, 10, 15, 1).astype(np.float32)
+
+            # ONNX Runtime 推理
+            ort_inputs = {model.get_inputs()[0].name: model_input}
+            ort_outs = model.run(None, ort_inputs)
+            prediction = ort_outs[0]
             predicted_label = np.argmax(prediction)
             recognized_digits.append(predicted_label)
 
@@ -125,7 +137,8 @@ def recognize_digits(image_path, model, gray_range=(45, 82)):
 
 if __name__ == '__main__':
     # Load the pre-trained model
-    model = load_model('digit_recognition_model.h5')
+    # model = load_model('digit_recognition_model.h5')
+    model = ort.InferenceSession('digit_recognition_model.onnx')
 
     # Specify the image path
     image_path = 'testdata/téléchargement (24).png'  # Replace with your image path
